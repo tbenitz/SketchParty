@@ -30,11 +30,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Set up Java for Capacitor 7
+      - name: Set up Java for Android Gradle
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: Install SDK 35
         run: |
