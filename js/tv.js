@@ -181,7 +181,7 @@ function host(){
   loading=true;ready=false;hostMode=true;
   $("phaseBadge").textContent="OPENING ROOM";
   createHost({
-    name:"TV display",playing:false,...callbacks(),
+    name:"TV display",playing:false,hideHostWord:true,...callbacks(),
     onReady:()=>{
       ready=true;loading=false;qrCode();
       message("Room ready! Players can scan the QR code.",7);
@@ -194,7 +194,7 @@ function watch(code){
   $("joinError").textContent="Connecting…";
   $("phaseBadge").textContent="CONNECTING";
   joinRoom({
-    code,name:"TV spectator",spectator:true,...callbacks(),
+    code,name:"TV spectator",spectator:true,tvDisplay:true,...callbacks(),
     onReady:()=>{
       ready=true;closeDialog("joinDialog");
       message("Watching room "+code+" · spectator only",6);
