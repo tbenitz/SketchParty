@@ -2,114 +2,98 @@
 
 **Draw on your phone. Guess on the TV.**
 
-A multiplayer Pictionary-style game built for living rooms. One device (or a simple hosted web page) acts as the TV Board that everyone watches. Players scan a QR code with their phones to join, form teams, and take turns drawing. The drawer (and their teammates) see the secret word on their phones. Everyone else sees the live drawing appear in real time on the big screen and on their own phones.
+A multiplayer Pictionary-style game built for living rooms. One device acts as the TV Board that everyone watches. Players scan a QR code with their phones to join and draw. Strokes appear in real time on the big screen.
 
-No accounts. No downloads (beyond an optional APK for the host). Instant QR join. Real-time stroke sync.
+No accounts. Instant QR join. Real-time stroke sync.
 
-> **Note:** This is an independent open-source project. It is not affiliated with the commercial "SketchParty TV" app by Magnate Interactive (available on the App Store for Apple TV/iOS).
+> **Note:** This is an independent open-source project. It is not affiliated with the commercial "SketchParty TV" app by Magnate Interactive.
 
-## Core Problem
+## How Joining Works
 
-Classic Pictionary is fun but clunky: paper, one shared board, people crowding around, and no easy way for everyone in the room (plus remote friends) to see clearly. Digital versions usually force everyone onto one device or require complex logins. SketchParty turns any phone into a drawing tablet and any TV into the shared board, with instant QR join, team play, and real-time sync.
+1. Host opens `tv.html` on the TV / laptop.
+2. Host creates a room → a QR code + short code appear.
+3. Players scan the QR (or enter the code) on their phones → opens `index.html?room=CODE`.
+4. Players join and can draw. Strokes stream live to the TV and every other phone via Firebase Realtime Database.
 
-## Architecture Overview
+## Quick Start (Multiplayer)
 
-- **TV / Host View**: Full-screen drawing canvas + scores + current team + timer. Can run in a browser on a smart TV, Chromecast, laptop connected to TV, or as part of an optional APK.
-- **Player Phones**: Join via QR → join/create team → receive role (drawer / guesser). Drawing happens in a simple canvas suite. Word is shown only to the drawing team.
-- **Real-time Sync**: Drawing strokes stream from the active drawer’s phone to the TV board and all other players (WebSockets, Firebase Realtime Database, or a lightweight signaling server).
-- **Static Drawing Suite**: A clean, self-contained HTML/JS drawing page (hosted on GitHub Pages or any static host) that players open. The main game can link to it or embed it.
-- **APK Option**: The host/TV experience and game logic can be wrapped as an Android APK for easier living-room use, while players still join via browser/QR.
+### 1. Firebase setup (one-time, free)
 
-## Key Features
+1. Go to [Firebase Console](https://console.firebase.google.com) → Create project.
+2. Build → Realtime Database → Create database (start in **test mode** for development).
+3. Project settings → General → Your apps → Add web app → copy the config.
+4. In this repo:
+   ```bash
+   cp firebase-config.example.js firebase-config.js
+   ```
+   Paste your config into `firebase-config.js`.
+5. (Optional but recommended) In Realtime Database rules, set:
+   ```json
+   {
+     "rules": {
+       "rooms": {
+         ".read": true,
+         ".write": true
+       }
+     }
+   }
+   ```
+   Tighten these later for production.
 
-### Joining & Teams
-- Host starts a game → generates a QR code + short join code
-- Players scan QR (or enter code) on their phones — opens the player web app instantly
-- Create or join teams (2+ teams supported)
-- Roles rotate automatically: one drawer per turn, rest are guessers
-- Word is revealed only on the phones of the drawing team; hidden from opponents and the TV
+### 2. Run locally
 
-### Drawing Suite (Simple & Fast)
-- Clean mobile canvas with:
-  - Pen (adjustable size and color)
-  - Eraser
-  - Undo
-  - Clear
-  - Optional basic shapes or fill
-- Optimized for finger/stylus drawing
-- Low-latency stroke streaming so the TV updates in near real time
-- Works entirely in the browser
+Serve the folder (Firebase modules need a real server, not `file://`):
 
-### Game Flow & Rules
-- Standard Pictionary rounds: draw the word, team guesses, opponents can also guess (or steal)
-- Configurable timer per turn (e.g. 60–90 seconds)
-- Word difficulty or categories (Easy / Medium / Hard, or themed packs)
-- Scoring: points for correct guess, bonus for speed, optional penalty for wrong guesses
-- Turn order and team rotation handled automatically
-- End-of-round and final scoreboard
+```bash
+# Python
+python -m http.server 8000
+# or npx
+npx serve .
+```
 
-### TV Board Experience
-- Large, clean canvas that mirrors the drawer’s strokes live
-- Current word status (“Drawing…”), timer, active team, and scores always visible
-- Guesses can be typed on phones and appear on the TV (or shouted, host confirms)
-- Smooth animations for round start/end, correct guess celebrations, score updates
+- Open `http://localhost:8000/tv.html` on the TV/laptop.
+- On phones, open the same URL but for `index.html`, or just scan the QR that appears.
 
-### Quality-of-Life
-- Rejoin if someone refreshes or loses connection
-- Host controls: skip word, adjust timer, end game
-- Multiple word packs (or custom word lists the host can paste)
-- Dark mode and high-contrast drawing colors for visibility on TV
-- Optional sound effects (timer warning, correct guess)
+### 3. GitHub Pages
 
-## User Flows
+Enable Pages (Settings → Pages → Source: main / root).  
+Then use the Pages URL for both host and players (the QR will automatically point at the right place).
 
-### Setup
-1. Host opens the TV view (browser or APK) and starts a new game
-2. QR code appears on screen
-3. Players scan → land in lobby → pick or create teams
-4. Host hits “Start” when ready
+## Current Files
 
-### During a Turn
-1. Active drawer’s phone shows the secret word + drawing tools
-2. Teammates see the word too (so they can help or just watch)
-3. Opponents and TV see only the live drawing + timer
-4. Drawer sketches; strokes appear instantly on the TV and other phones
-5. Guessers type or shout answers; correct guess ends the turn early and awards points
-6. Timer runs out → next team’s turn
+| File | Purpose |
+|------|---------|
+| `tv.html` | Host / TV board — creates room, shows QR, receives live strokes |
+| `index.html` | Player phones — join via QR or code, draw, stream strokes |
+| `js/game.js` | Shared room + stroke sync logic |
+| `firebase-config.example.js` | Template for your Firebase keys |
+| `words.json` | Sample word packs (easy/medium/hard + themed) |
 
-### After Game
-- Final scores on TV
-- Option to play again with same teams or reshuffle
+## What's Implemented
 
-## Screens / Structure
+- Room creation + short join code
+- QR code that opens the player page with the room pre-filled
+- Player join by code or QR
+- Live stroke streaming (normalized coordinates so different screen sizes work)
+- Pen, eraser, color, size, clear
+- Player list on the TV
 
-- **TV / Host**: Lobby (QR + teams), Live Board (canvas + HUD), Scoreboard
-- **Player Phone**: Join screen, Team select, Waiting/Guesser view, Drawer view (word + tools), Guess input
-- **Drawing Suite**: Standalone or embedded canvas page (the GitHub-hosted index)
+## Still to Build
 
-## Tech Stack (Planned / Suggested)
+- Teams and role rotation (drawer vs guessers)
+- Secret word reveal only to the drawing team
+- Timer, scoring, word packs, end-of-round scoreboard
+- Host controls (skip, adjust timer, end game)
+- Rejoin / presence cleanup polish
+- Optional APK wrapper for the host view
 
-- **Frontend**: Vanilla HTML/CSS/JS or lightweight framework (React/Vue/Svelte) for both TV and player views
-- **Real-time**: WebSockets (Socket.io, PartyKit, or Firebase Realtime Database)
-- **Hosting**: GitHub Pages for static assets; optional serverless backend for rooms/signaling
-- **Optional APK**: Capacitor / Cordova / Trusted Web Activity wrapping the TV host view
+## Tech
 
-## Getting Started
-
-This repo is in early scaffolding stage.
-
-1. Clone the repo
-2. Open `index.html` (drawing suite prototype) or the TV host page in a browser
-3. For multiplayer, a signaling/backend layer is still needed
-
-### GitHub Pages
-
-Enable GitHub Pages in the repo settings (source: main branch / root) to host the static drawing suite.
-
-## Contributing
-
-Ideas, PRs, and word packs welcome. This is an open living-room party game concept.
+- Vanilla HTML/CSS/JS (no build step)
+- Firebase Realtime Database for rooms and strokes
+- qrcodejs for QR generation
+- Works on GitHub Pages or any static host once Firebase is configured
 
 ## License
 
-MIT (or choose your own).
+MIT
