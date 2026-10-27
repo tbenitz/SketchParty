@@ -1,348 +1,132 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>SketchParty</title>
-  <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#151a2c">
+  <title>SketchParty — Draw, Guess, Win</title>
+  <meta name="description" content="Free multiplayer Pictionary-style drawing and guessing game. Join via QR or room code.">
+  <link rel="stylesheet" href="./style.css">
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #0a0a0a;
-      color: #fff;
-      height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      touch-action: none;
-      overflow: hidden;
-    }
-    /* Kitchen splash while loading */
-    #splash {
-      position: fixed;
-      inset: 0;
-      background: #1a120b url('https://images.unsplash.com/photo-1556912173-3bb406ef7e77?auto=format&fit=crop&w=1200&q=80') center/cover no-repeat;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      transition: opacity 0.4s;
-    }
-    #splash.hidden { opacity: 0; pointer-events: none; }
-    #splash .overlay {
-      background: rgba(0,0,0,0.45);
-      padding: 24px 32px;
-      border-radius: 16px;
-      text-align: center;
-    }
-    #splash h1 { font-size: 2rem; margin-bottom: 8px; }
-    header {
-      padding: 8px 12px;
-      background: #111;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      flex-shrink: 0;
-      z-index: 10;
-    }
-    h1 { font-size: 1rem; font-weight: 600; }
-    .tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-    button, input[type="color"], input[type="text"] {
-      background: #2a2a2a;
-      border: 1px solid #444;
-      color: #fff;
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      cursor: pointer;
-    }
-    button.active { background: #3b82f6; border-color: #3b82f6; }
-    canvas { flex: 1; background: #fff; touch-action: none; width: 100%; }
-    .fab {
-      position: fixed;
-      bottom: 16px;
-      right: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      z-index: 20;
-    }
-    .fab button {
-      background: #3b82f6;
-      border: none;
-      padding: 12px 16px;
-      border-radius: 999px;
-      font-weight: 600;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    }
-    .modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 50;
-    }
-    .modal.open { display: flex; }
-    .modal-card {
-      background: #161616;
-      padding: 20px;
-      border-radius: 12px;
-      width: 90%;
-      max-width: 360px;
-      text-align: center;
-    }
-    .modal-card input { width: 100%; margin: 8px 0; font-size: 1.1rem; text-align: center; }
-    #qrcode { background: #fff; padding: 12px; border-radius: 12px; margin: 12px auto; display: inline-block; }
-  </style>
 </head>
 <body>
-  <!-- Kitchen splash -->
-  <div id="splash">
-    <div class="overlay">
-      <h1>SketchParty</h1>
-      <p>Draw on your phone. Guess on the TV.</p>
+  <header class="topbar">
+    <div class="brand"><span class="logo">✏</span><span>Sketch<span class="accent">Party</span></span></div>
+    <span id="connectionStatus" class="connection">Free draw • not connected</span>
+    <div class="top-actions">
+      <button id="hostBtn" class="primary">Host room</button>
+      <button id="joinBtn">Join room</button>
+      <button id="shareBtn" class="hidden">Room QR / Code</button>
+      <button id="nameBtn" class="hidden">Nickname</button>
+      <button id="leaveBtn" class="hidden muted">Leave</button>
     </div>
-  </div>
-
-  <header>
-    <h1>SketchParty</h1>
-    <div class="tools" id="tools">
-      <button id="pen" class="active">Pen</button>
-      <button id="eraser">Eraser</button>
-      <button id="clear">Clear</button>
-      <input type="color" id="color" value="#000000">
-      <input type="range" id="size" min="2" max="20" value="6">
-    </div>
-    <div id="status">Doodling</div>
   </header>
 
-  <!-- Always-on doodle canvas -->
-  <canvas id="canvas"></canvas>
-
-  <!-- Floating actions -->
-  <div class="fab">
-    <button id="hostBtn">Host Room</button>
-    <button id="joinBtn">Join / Scan</button>
+  <div class="game-strip">
+    <div class="strip-item"><span class="overline">ROUND</span><strong id="roundLabel">Free drawing</strong></div>
+    <div class="strip-item word-cell"><span class="overline">YOUR WORD / CLUE</span><strong id="wordLabel">Host or join a room to play</strong></div>
+    <div class="strip-item timer-cell"><span class="overline">TIME LEFT</span><strong id="timerLabel">--:--</strong></div>
   </div>
 
-  <!-- Join modal -->
-  <div class="modal" id="joinModal">
+  <main class="layout">
+    <section class="board-column" aria-label="Drawing area">
+      <div class="board-bar">
+        <div><span id="drawerLabel" class="drawer">Everyone can draw</span><span id="roleLabel" class="role-note"> • Free draw</span></div>
+        <span class="board-size">16:9 shared canvas</span>
+      </div>
+      <div class="board-outer">
+        <div class="canvas-frame">
+          <canvas id="canvas" width="1200" height="675" aria-label="Shared whiteboard"></canvas>
+        </div>
+      </div>
+      <div class="toolbar" id="toolbar">
+        <div class="tool-group">
+          <button id="pen" class="active">✏ Pen</button>
+          <button id="eraser">◻ Erase</button>
+          <button id="clear" class="danger">Clear board</button>
+        </div>
+        <div class="tool-group">
+          <label for="color">Color</label><input id="color" type="color" value="#111111">
+          <label for="size">Brush</label><input id="size" type="range" min="2" max="26" value="6">
+          <span id="sizeValue">6</span>
+        </div>
+        <span id="drawHint" class="hint">Draw with your mouse or finger.</span>
+      </div>
+      <section class="guess-panel" id="guessPanel">
+        <form id="guessForm" class="guess-form">
+          <input id="guessInput" type="text" maxlength="75" autocomplete="off" placeholder="Enter your guess…" aria-label="Your guess">
+          <button id="guessBtn" class="primary" type="submit">Guess</button>
+        </form>
+        <div id="chatLog" class="chat-log" aria-live="polite"><div class="subtle">Guesses will appear here.</div></div>
+      </section>
+    </section>
+
+    <aside class="side-panel">
+      <section class="side-card">
+        <div class="section-head"><h2>Leaderboard</h2><span id="playerCount">0 players</span></div>
+        <div id="scoreboard" class="scoreboard"><div class="subtle">Host or join to see players.</div></div>
+      </section>
+      <section class="side-card host-only hidden" id="hostControls">
+        <h2>Host controls</h2>
+        <div class="controls-grid">
+          <label>Word difficulty
+            <select id="difficulty"><option value="any">Any difficulty</option><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+          </label>
+          <label>Round length
+            <select id="duration"><option value="45">45 seconds</option><option value="60">60 seconds</option><option value="90" selected>90 seconds</option><option value="120">2 minutes</option><option value="180">3 minutes</option></select>
+          </label>
+        </div>
+        <button id="nextRound" class="primary wide">Start / Next round</button>
+        <button id="endRound" class="wide">End round</button>
+        <div class="separator"></div>
+        <div class="host-row">
+          <button id="resetScores">Reset scores</button>
+          <button id="newGame" class="danger">New game</button>
+        </div>
+        <p class="small">Use + / − beside a nickname to change that player's points. New game resets scores and the board.</p>
+      </section>
+      <section class="side-card tips">
+        <h2>How to play</h2>
+        <p>One player draws the secret word. Others guess before the timer expires. Correct guesses earn points for both the guesser and artist.</p>
+        <p>Spectators (including a TV host) can see the word but cannot guess. Drawing is open to everyone between rounds.</p>
+      </section>
+    </aside>
+  </main>
+
+  <div id="hostModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="hostTitle" hidden>
     <div class="modal-card">
-      <h3>Join a Room</h3>
-      <input id="nameInput" placeholder="Your name" value="Player">
-      <input id="codeInput" placeholder="ROOM CODE" maxlength="6" style="text-transform:uppercase;">
-      <button id="doJoin">Join</button>
-      <button id="closeJoin" style="margin-top:8px;background:#333;">Cancel</button>
-      <p id="joinError" style="color:#f87171;margin-top:8px;"></p>
+      <button class="close-modal" data-close="hostModal" aria-label="Close">×</button>
+      <h2 id="hostTitle">Host a game</h2>
+      <p>Choose a name. Host as referee on your TV, or participate in drawing and guessing.</p>
+      <label>Your nickname <input id="hostName" maxlength="24" autocomplete="nickname" placeholder="Game host"></label>
+      <label class="check-label"><input id="hostPlaying" type="checkbox"> I'm playing too (otherwise spectator / referee)</label>
+      <button id="doHost" class="primary wide">Create room</button>
     </div>
   </div>
-
-  <!-- Host lobby modal -->
-  <div class="modal" id="lobbyModal">
+  <div id="joinModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="joinTitle" hidden>
     <div class="modal-card">
-      <h3>Scan to Join</h3>
-      <div id="qrcode"></div>
-      <p style="font-size:1.4rem;">Code: <strong id="codeDisplay"></strong></p>
-      <div id="players">Waiting for players…</div>
-      <button id="closeLobby" style="margin-top:12px;">Close</button>
+      <button class="close-modal" data-close="joinModal" aria-label="Close">×</button>
+      <h2 id="joinTitle">Join SketchParty</h2>
+      <p>Use the room code shown on the host's screen.</p>
+      <label>Your nickname <input id="joinName" maxlength="24" autocomplete="nickname" placeholder="Your nickname"></label>
+      <label>Room code <input id="joinCode" maxlength="6" autocapitalize="characters" autocomplete="off" placeholder="ABC123"></label>
+      <label class="check-label"><input id="joinSpectator" type="checkbox"> Watch as spectator (see secret word, no guessing)</label>
+      <button id="doJoin" class="primary wide">Join room</button>
+      <div id="joinError" class="error-text" role="alert"></div>
     </div>
   </div>
-
-  <script type="module">
-    import { createHost, joinAsPlayer, sendStroke, sendClear } from "./js/game.js";
-
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
-    const tools = document.getElementById("tools");
-    const statusEl = document.getElementById("status");
-    const splash = document.getElementById("splash");
-
-    let isHost = false;
-    let canDraw = true; // local doodle always allowed; restricted when in a game turn later
-    let drawing = false;
-    let tool = "pen";
-    let color = "#000000";
-    let size = 6;
-    let currentPoints = [];
-
-    function resize() {
-      const header = document.querySelector("header");
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight - header.offsetHeight;
-      // restore white bg
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-    window.addEventListener("resize", resize);
-    resize();
-
-    // Hide splash after a short moment
-    setTimeout(() => splash.classList.add("hidden"), 1200);
-
-    // Auto-fill room from QR
-    const params = new URLSearchParams(location.search);
-    const urlCode = params.get("room");
-    if (urlCode) {
-      document.getElementById("codeInput").value = urlCode;
-      document.getElementById("joinModal").classList.add("open");
-    }
-
-    // --- Host ---
-    document.getElementById("hostBtn").onclick = () => {
-      isHost = true;
-      document.getElementById("lobbyModal").classList.add("open");
-      statusEl.textContent = "Hosting";
-
-      createHost(
-        (code) => {
-          document.getElementById("codeDisplay").textContent = code;
-          const joinUrl = new URL(window.location.href);
-          joinUrl.searchParams.set("room", code);
-          document.getElementById("qrcode").innerHTML = "";
-          new QRCode(document.getElementById("qrcode"), {
-            text: joinUrl.toString(),
-            width: 200,
-            height: 200
-          });
-        },
-        (names) => {
-          document.getElementById("players").textContent = names.length
-            ? "Joined: " + names.join(", ")
-            : "Waiting for players…";
-        },
-        handleIncomingStroke
-      );
-    };
-
-    document.getElementById("closeLobby").onclick = () => {
-      document.getElementById("lobbyModal").classList.remove("open");
-    };
-
-    // --- Join ---
-    document.getElementById("joinBtn").onclick = () => {
-      document.getElementById("joinModal").classList.add("open");
-    };
-    document.getElementById("closeJoin").onclick = () => {
-      document.getElementById("joinModal").classList.remove("open");
-    };
-
-    document.getElementById("doJoin").onclick = () => {
-      const name = document.getElementById("nameInput").value || "Player";
-      const code = document.getElementById("codeInput").value;
-      if (!code) {
-        document.getElementById("joinError").textContent = "Enter a room code.";
-        return;
-      }
-
-      joinAsPlayer(
-        code,
-        name,
-        () => {
-          document.getElementById("joinModal").classList.remove("open");
-          statusEl.textContent = "In room";
-          canDraw = true; // still allow doodle; later restrict by turn
-        },
-        handleIncomingStroke,
-        () => {}
-      );
-    };
-
-    function handleIncomingStroke(data) {
-      if (data.type === "clear") {
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        return;
-      }
-      drawRemoteStroke(data);
-    }
-
-    function getNormPos(e) {
-      const rect = canvas.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      return {
-        x: (clientX - rect.left) / canvas.width,
-        y: (clientY - rect.top) / canvas.height
-      };
-    }
-
-    function start(e) {
-      if (!canDraw) return;
-      e.preventDefault();
-      drawing = true;
-      currentPoints = [getNormPos(e)];
-      ctx.beginPath();
-      const p = currentPoints[0];
-      ctx.moveTo(p.x * canvas.width, p.y * canvas.height);
-    }
-
-    function draw(e) {
-      if (!drawing || !canDraw) return;
-      e.preventDefault();
-      const p = getNormPos(e);
-      currentPoints.push(p);
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.lineWidth = tool === "eraser" ? size * 3 : size;
-      ctx.strokeStyle = tool === "eraser" ? "#ffffff" : color;
-      ctx.lineTo(p.x * canvas.width, p.y * canvas.height);
-      ctx.stroke();
-    }
-
-    function end() {
-      if (!drawing || currentPoints.length < 2) { drawing = false; return; }
-      drawing = false;
-      // Only send if we're in a room
-      if (isHost || document.getElementById("status").textContent === "In room") {
-        sendStroke({ points: currentPoints, color, size, tool });
-      }
-      currentPoints = [];
-    }
-
-    canvas.addEventListener("mousedown", start);
-    canvas.addEventListener("mousemove", draw);
-    canvas.addEventListener("mouseup", end);
-    canvas.addEventListener("mouseleave", end);
-    canvas.addEventListener("touchstart", start, { passive: false });
-    canvas.addEventListener("touchmove", draw, { passive: false });
-    canvas.addEventListener("touchend", end);
-    canvas.addEventListener("touchcancel", end);
-
-    document.getElementById("pen").onclick = () => {
-      tool = "pen";
-      document.getElementById("pen").classList.add("active");
-      document.getElementById("eraser").classList.remove("active");
-    };
-    document.getElementById("eraser").onclick = () => {
-      tool = "eraser";
-      document.getElementById("eraser").classList.add("active");
-      document.getElementById("pen").classList.remove("active");
-    };
-    document.getElementById("clear").onclick = () => {
-      if (isHost || document.getElementById("status").textContent === "In room") sendClear();
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    };
-    document.getElementById("color").oninput = (e) => { color = e.target.value; };
-    document.getElementById("size").oninput = (e) => { size = +e.target.value; };
-
-    function drawRemoteStroke(stroke) {
-      if (!stroke.points || stroke.points.length < 2) return;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.lineWidth = stroke.tool === "eraser" ? (stroke.size || 6) * 3 : (stroke.size || 6);
-      ctx.strokeStyle = stroke.tool === "eraser" ? "#ffffff" : (stroke.color || "#000");
-      ctx.beginPath();
-      ctx.moveTo(stroke.points[0].x * canvas.width, stroke.points[0].y * canvas.height);
-      for (let i = 1; i < stroke.points.length; i++) {
-        ctx.lineTo(stroke.points[i].x * canvas.width, stroke.points[i].y * canvas.height);
-      }
-      ctx.stroke();
-    }
-  </script>
+  <div id="shareModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="shareTitle" hidden>
+    <div class="modal-card share-card">
+      <button class="close-modal" data-close="shareModal" aria-label="Close">×</button>
+      <h2 id="shareTitle">Scan to join</h2>
+      <div id="qrcode" class="qr">Preparing room…</div>
+      <div class="room-code" id="codeDisplay">------</div>
+      <button id="copyLink" class="primary wide">Copy invite link</button>
+      <p class="small">Phones can scan the code or enter the 6-character room code. Keep the host connected for the session.</p>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./js/app.js"></script>
 </body>
 </html>
