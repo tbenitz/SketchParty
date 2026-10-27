@@ -17,6 +17,7 @@ android/
 *.apk
 *.aab
 
-# Local env
+# Local env / secrets
 .env
 .env.local
+firebase-config.js
