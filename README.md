@@ -12,17 +12,17 @@ Draw on your phone. Guess on the TV. SketchParty is a multiplayer Pictionary-sty
 - **485 included Pictionary words**, split into easy / medium / hard. No API required.
 - Timed rounds (45–180 seconds), rotating artists, text guesses and automatic scores.
 - Correct guess earns **100 + remaining seconds** for the guesser and **50** for the artist. Only the host decides scores and reveals.
-- Active guessers see a masked clue. The current artist and spectators see the full word. The host can be a referee/spectator or player.
+- Active guessers see a masked clue. The current artist and ordinary phone spectators see the full word. **The TV display never shows the answer.** A browser host can act as a referee/spectator or player.
 - Host can adjust each player's points by ±25 or set an exact number, reset the scoreboard, end/skip rounds or start a completely fresh game.
 
 ## Play in the browser
 
-Open **https://tbenitz.github.io/SketchParty/** (requires GitHub Pages enabled at repository Settings → Pages, source **Deploy from a branch**, main, /(root)).
+For phones, open **https://tbenitz.github.io/SketchParty/**. For the TV spectator view in a browser, open **https://tbenitz.github.io/SketchParty/tv.html**. The TV view automatically creates a room and can optionally **Watch another room** by entering its code. GitHub Pages must be enabled at repository Settings → Pages, source **Deploy from a branch**, main, /(root).
 
-1. On the TV/PC, select **Host room**, type a nickname and choose whether the host is playing or spectating. A QR code and room code appear.
+1. The TV opens its simple spectator screen and automatically hosts a room. The QR code and room code appear at the right; a phone or PC can alternatively host using the ordinary player page.
 2. Each phone scans the code or selects **Join room**, enters a nickname and joins as a player (or spectator).
-3. Host closes the QR panel and selects **Start next round**. The current artist sees the word and has the drawing tools. Everyone else guesses. A TV acting as spectator can see the word and timer.
-4. Host may change difficulty, round length or scores and begin a new game.
+3. On the TV, start the game once at least two phone players join. The current phone artist sees the secret word; the TV **never displays it**. The TV shows a large read-only canvas and a timer during rounds.
+4. After a round, the TV shows the **leaderboard beside a live free-draw canvas** for 25 seconds before automatically starting the next round. You can also choose **Next round** to begin immediately. The TV's optional **Manage scores** dialog is accessible between rounds but there are no drawing tools, guess box or configuration panels on the main TV screen. The normal browser host still has its full controls.
 
 A PeerJS public signaling service connects browser peers; drawings are sent over WebRTC data channels. The **host must stay online**. No login, Firebase, API key or central game database is needed.
 
@@ -36,7 +36,7 @@ This repository generates a real native Capacitor APK using GitHub Actions; the 
 2. Select **Run workflow → main → Run workflow**, or open the latest automatic build after a push to main.
 3. When the green build check appears, open that workflow run.
 4. Scroll to **Artifacts**, click **SketchParty-AndroidTV-APK**, extract the ZIP and install **SketchParty-AndroidTV-debug.apk** on the TV box.
-5. Open SketchParty from your TV's regular app launcher. It advertises both `LAUNCHER` and `LEANBACK_LAUNCHER` and provides a TV banner.
+5. Open SketchParty from your TV's regular app launcher. **The APK starts directly in the spectator TV screen**, not the phone player UI. It advertises both `LAUNCHER` and `LEANBACK_LAUNCHER` and provides a TV banner.
 
 For a Mi Box you can transfer the APK from a Chromebook or Android phone using a file-sharing app, then enable app installation from that source on the TV. It is an ordinary user application — no default-home/launcher replacement and no ADB needed. TV users control UI buttons with a D-pad; players generally draw from phones.
 
@@ -48,15 +48,24 @@ For a Mi Box you can transfer the APK from a Chromebook or Android phone using a
 
 | File | Purpose |
 | --- | --- |
-| `index.html`, `style.css` | Responsive game layout, board and controls |
+| `index.html`, `style.css` | Responsive phone / desktop game with host controls |
+| `tv.html`, `tv.css`, `js/tv.js` | Read-only TV display, auto-host QR lobby, between-round leaderboard |
 | `js/app.js` | Fixed-size canvas rendering, pointer input and UI |
 | `js/game.js` | Host-authoritative PeerJS state, snapshot/replay, scoring, guessing |
 | `words.json` | 485 common drawing prompts |
 | `package.json`, `capacitor.config.json` | Capacitor Android project configuration |
-| `scripts/prepare-web.mjs` | Copies the game into the APK web bundle |
+| `scripts/prepare-web.mjs` | Packs the **TV screen** as the Android app startup page |
 | `scripts/patch-android.mjs` | Enables TV launcher and generates the banner |
 | `.github/workflows/build-apk.yml` | Automated GitHub-hosted APK build |
 
 ## License
 
 MIT
+
+## TV controls
+
+- **Starting the TV APK automatically creates a room** and shows a QR code. At least two phones must join as players before the game can start. The TV host is always a spectator and can never draw, guess, or appear in the player rotation.
+- **During the round:** the board uses nearly the entire screen. Show the current artist, round number, and countdown; the word is never displayed on TV.
+- **Between rounds:** the shared board remains interactive on phones for everyone while a large leaderboard appears beside it. The next round starts automatically after **25 seconds** or sooner if **Next round** is selected.
+- **Minimal admin tools:** the small Manage scores button is available *only when not in a round*, where you can edit or reset scores and start a new game. There is no settings sidebar on the TV.
+- **To use another device as host:** on the TV lobby choose **Watch another room**, enter that room's 6-character code, and the TV will become a non-participating spectator. Starting rounds and scoring remain on the phone/PC host.
