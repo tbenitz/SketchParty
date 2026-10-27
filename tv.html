@@ -4,8 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SketchParty — TV Board</title>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -27,7 +26,6 @@
       flex-shrink: 0;
     }
     .hud { display: flex; gap: 24px; align-items: center; font-size: 1.1rem; }
-    .timer { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.4rem; }
     canvas { flex: 1; background: #fff; width: 100%; }
     .lobby {
       flex: 1;
@@ -49,7 +47,7 @@
       font-size: 1rem;
       cursor: pointer;
     }
-    #players { margin-top: 8px; opacity: 0.85; }
+    #players { margin-top: 8px; opacity: 0.85; max-width: 480px; }
     .setup {
       max-width: 420px;
       width: 100%;
@@ -57,7 +55,6 @@
       padding: 20px;
       border-radius: 12px;
     }
-    input { width: 100%; padding: 10px; margin: 8px 0 12px; border-radius: 6px; border: 1px solid #333; background: #111; color: #fff; }
   </style>
 </head>
 <body>
@@ -65,7 +62,6 @@
     <h1>SketchParty</h1>
     <div class="hud">
       <span id="status">Create a room</span>
-      <span class="timer" id="timer">--:--</span>
       <span id="scores">Players: 0</span>
     </div>
   </header>
@@ -73,33 +69,29 @@
   <div class="lobby" id="lobby">
     <div class="setup" id="setup">
       <h2>Start a game</h2>
-      <p style="opacity:.7;margin:8px 0 12px;">Open this page on your TV / laptop. Players scan the QR with their phones.</p>
-      <label>Your name<br><input id="hostName" value="Host"></label>
+      <p style="opacity:.7;margin:8px 0 12px;">Open this on your TV or laptop. Players scan the QR with their phones. No accounts, no server — pure WebRTC.</p>
       <button id="createBtn">Create Room</button>
-      <p id="configWarn" style="color:#f87171;margin-top:12px;display:none;">Firebase config missing. Copy firebase-config.example.js → firebase-config.js and add your project keys.</p>
     </div>
 
     <div id="roomInfo" style="display:none;">
       <h2>Scan to Join</h2>
       <div id="qrcode"></div>
-      <p style="font-size:1.4rem;margin-top:8px;">Code: <strong id="codeDisplay"></strong></p>
+      <p style="font-size:1.6rem;margin-top:8px;">Code: <strong id="codeDisplay"></strong></p>
       <div id="players"></div>
-      <button id="startBtn" style="margin-top:12px;">Start Drawing</button>
+      <button id="startBtn" style="margin-top:12px;">Show Drawing Board</button>
     </div>
   </div>
 
   <canvas id="canvas" style="display:none;"></canvas>
 
   <script type="module">
-    import { firebaseConfig } from "./firebase-config.js";
-    import { initFirebase, createRoom, listenPlayers, listenStrokes, getRoomCode } from "./js/game.js";
+    import { createHost } from "./js/game.js";
 
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     const lobby = document.getElementById("lobby");
     const setup = document.getElementById("setup");
     const roomInfo = document.getElementById("roomInfo");
-    const configWarn = document.getElementById("configWarn");
 
     function resize() {
       canvas.width = window.innerWidth;
@@ -108,42 +100,37 @@
     window.addEventListener("resize", resize);
     resize();
 
-    const hasConfig = initFirebase(firebaseConfig);
-    if (!hasConfig) configWarn.style.display = "block";
+    document.getElementById("createBtn").onclick = () => {
+      createHost(
+        (code) => {
+          setup.style.display = "none";
+          roomInfo.style.display = "block";
+          document.getElementById("codeDisplay").textContent = code;
+          document.getElementById("status").textContent = "Waiting for players…";
 
-    document.getElementById("createBtn").onclick = async () => {
-      if (!hasConfig) return;
-      const name = document.getElementById("hostName").value || "Host";
-      const code = await createRoom(name);
-      if (!code) return;
-
-      setup.style.display = "none";
-      roomInfo.style.display = "block";
-      document.getElementById("codeDisplay").textContent = code;
-      document.getElementById("status").textContent = "Waiting for players…";
-
-      const joinUrl = new URL("index.html", window.location.href);
-      joinUrl.searchParams.set("room", code);
-      new QRCode(document.getElementById("qrcode"), {
-        text: joinUrl.toString(),
-        width: 220,
-        height: 220
-      });
-
-      listenPlayers((players) => {
-        const list = Object.values(players).map(p => p.name).join(", ") || "none yet";
-        document.getElementById("players").textContent = "Joined: " + list;
-        document.getElementById("scores").textContent = "Players: " + Object.keys(players).length;
-      });
-
-      listenStrokes((id, stroke) => {
-        if (!stroke) {
-          ctx.fillStyle = "#fff";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          return;
+          const joinUrl = new URL("index.html", window.location.href);
+          joinUrl.searchParams.set("room", code);
+          new QRCode(document.getElementById("qrcode"), {
+            text: joinUrl.toString(),
+            width: 240,
+            height: 240
+          });
+        },
+        (names) => {
+          document.getElementById("players").textContent = names.length
+            ? "Joined: " + names.join(", ")
+            : "Waiting for players…";
+          document.getElementById("scores").textContent = "Players: " + names.length;
+        },
+        (data) => {
+          if (data.type === "clear") {
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            return;
+          }
+          drawStroke(data);
         }
-        drawStroke(stroke);
-      });
+      );
     };
 
     document.getElementById("startBtn").onclick = () => {
