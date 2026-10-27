@@ -30,13 +30,13 @@ A PeerJS public signaling service connects browser peers; drawings are sent over
 
 ## Build and download the Android TV APK (no Android Studio needed)
 
-This repository generates a real native Capacitor APK using GitHub Actions; the old third-party \`web-to-apk\` step has been removed.
+This repository generates a real native Capacitor APK using GitHub Actions; the old third-party `web-to-apk` step has been removed.
 
 1. Open **[Actions → Build Android TV APK](https://github.com/tbenitz/SketchParty/actions/workflows/build-apk.yml)**.
 2. Select **Run workflow → main → Run workflow**, or open the latest automatic build after a push to main.
 3. When the green build check appears, open that workflow run.
 4. Scroll to **Artifacts**, click **SketchParty-AndroidTV-APK**, extract the ZIP and install **SketchParty-AndroidTV-debug.apk** on the TV box.
-5. Open SketchParty from your TV's regular app launcher. It advertises both \`LAUNCHER\` and \`LEANBACK_LAUNCHER\` and provides a TV banner.
+5. Open SketchParty from your TV's regular app launcher. It advertises both `LAUNCHER` and `LEANBACK_LAUNCHER` and provides a TV banner.
 
 For a Mi Box you can transfer the APK from a Chromebook or Android phone using a file-sharing app, then enable app installation from that source on the TV. It is an ordinary user application — no default-home/launcher replacement and no ADB needed. TV users control UI buttons with a D-pad; players generally draw from phones.
 
@@ -48,14 +48,14 @@ For a Mi Box you can transfer the APK from a Chromebook or Android phone using a
 
 | File | Purpose |
 | --- | --- |
-| \`index.html\`, \`style.css\` | Responsive game layout, board and controls |
-| \`js/app.js\` | Fixed-size canvas rendering, pointer input and UI |
-| \`js/game.js\` | Host-authoritative PeerJS state, snapshot/replay, scoring, guessing |
-| \`words.json\` | 485 common drawing prompts |
-| \`package.json\`, \`capacitor.config.json\` | Capacitor Android project configuration |
-| \`scripts/prepare-web.mjs\` | Copies the game into the APK web bundle |
-| \`scripts/patch-android.mjs\` | Enables TV launcher and generates the banner |
-| \`.github/workflows/build-apk.yml\` | Automated GitHub-hosted APK build |
+| `index.html`, `style.css` | Responsive game layout, board and controls |
+| `js/app.js` | Fixed-size canvas rendering, pointer input and UI |
+| `js/game.js` | Host-authoritative PeerJS state, snapshot/replay, scoring, guessing |
+| `words.json` | 485 common drawing prompts |
+| `package.json`, `capacitor.config.json` | Capacitor Android project configuration |
+| `scripts/prepare-web.mjs` | Copies the game into the APK web bundle |
+| `scripts/patch-android.mjs` | Enables TV launcher and generates the banner |
+| `.github/workflows/build-apk.yml` | Automated GitHub-hosted APK build |
 
 ## License
 
