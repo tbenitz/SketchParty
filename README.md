@@ -2,76 +2,60 @@
 
 **Draw on your phone. Guess on the TV.**
 
-Multiplayer Pictionary-style game for living rooms. One device is the TV board. Players scan a QR code with their phones and draw. Strokes appear in real time on the big screen.
+One page does everything. Host opens it on the TV (or the APK). Players scan the QR and join on their phones. Everyone sees the live drawing board.
 
-No accounts. No downloads required for players. Pure WebRTC via PeerJS — works on GitHub Pages with zero backend.
-
-> Independent open-source project. Not affiliated with the commercial SketchParty TV app.
+No accounts. No separate TV page. Pure WebRTC via PeerJS.
 
 ## How it works
 
-1. Host opens `tv.html` on a TV, laptop, or the optional APK.
-2. Host creates a room → short code + QR code appear.
-3. Players scan the QR (or type the code) → their phone opens `index.html?room=CODE`.
-4. Drawing on any phone streams live to the TV and every other player via WebRTC.
+1. Host (TV / APK / laptop) opens `index.html` and taps **Host a Room**.
+2. A short code + QR appear.
+3. Players scan the QR or type the code → they join the same page.
+4. The live canvas is visible on the host and on every phone. Drawing tools appear when it’s your turn (currently everyone can draw while we add proper turn logic).
+5. Strokes stream in real time via WebRTC.
 
-The host peer acts as a simple relay. Signaling uses the free PeerJS cloud; the actual stroke data is peer-to-peer.
+The host peer relays data. Signaling uses the free PeerJS cloud; strokes travel peer-to-peer.
 
 ## Quick Start
 
-### Local / GitHub Pages
+Open `index.html` (or enable GitHub Pages).
 
-Just open the files (or enable GitHub Pages):
+- Host: tap **Host a Room**
+- Players: scan the QR or enter the code
 
-- Host: `tv.html`
-- Players: `index.html` (or scan the QR)
+That’s it. No config.
 
-No config, no API keys, no Firebase.
+### APK for the TV host
 
-Serve locally if needed:
-```bash
-python -m http.server 8000
-```
+Trigger the workflow in `.github/workflows/build-apk.yml` (Actions tab → Build Host APK). It builds a debug APK that loads the same `index.html`. Sideload it to an Android TV, Fire Stick, or tablet. Players still use their phone browsers.
 
-### APK for the TV host (sideload)
-
-A GitHub Actions workflow can build an Android APK that wraps the TV host page. Once built, sideload it to an Android TV, Fire Stick, or tablet so the host experience is a native app with the QR code.
-
-See `.github/workflows/build-apk.yml` (when added) or use Capacitor / a simple WebView wrapper. Players still join via browser/QR — no APK needed for them.
-
-## Current files
+## Files
 
 | File | Purpose |
 |------|---------|
-| `tv.html` | Host / TV board — creates PeerJS room, shows QR, receives live strokes |
-| `index.html` | Player phones — join via QR or code, draw, stream strokes |
-| `js/game.js` | PeerJS host relay + player connection logic |
+| `index.html` | Single app — host lobby (QR) + live board + player drawing/viewing |
+| `js/game.js` | PeerJS host relay + player connections |
 | `words.json` | Sample word packs |
+| `.github/workflows/build-apk.yml` | Builds the host APK |
 
-## What's working
+## Status
 
-- Room creation with short join code
-- QR code that opens the player page with the room pre-filled
-- Player join by code or QR
-- Live stroke streaming (normalized coordinates)
-- Pen, eraser, color, size, clear
-- Player list on the TV
+**Working**
+- Host a room + QR + short code
+- Join from phone (QR or code)
+- Live stroke sync on host and all phones
+- Pen / eraser / color / size / clear
+- Everyone sees the live board
 
-## Still to build
-
-- Teams and drawer / guesser roles
+**Next**
+- Turn order so only the current drawer gets the tools (others stay in view-only)
 - Secret word shown only to the drawing team
-- Timer, scoring, word packs, round flow
-- Host controls (skip word, end game)
-- Optional GitHub Actions APK build for the host view
+- Timer, scoring, word packs
+- Teams
 
 ## Tech
 
-- Vanilla HTML/CSS/JS (no build step)
-- PeerJS + WebRTC (free PeerJS cloud for signaling only)
-- qrcodejs for QR generation
-- Works on GitHub Pages or any static host
-- Optional APK via Capacitor / GitHub Actions for the TV host
+Vanilla HTML/CSS/JS + PeerJS (WebRTC). Works on GitHub Pages. Optional Capacitor APK for the host.
 
 ## License
 
