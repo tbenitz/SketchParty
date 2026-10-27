@@ -2,22 +2,22 @@
 // PeerJS uses its public signaling service. Game messages use WebRTC data channels.
 let peer, room, hosting = false, hostConnection;
 let peers = new Map(), localId = "", hostCallbacks = {};
-let state = null, wordBank = {}, usedWords = new Set(), roundTimer;
+let state = null, wordBank = {}, usedWords = new Set(), roundTimer, concealHostWord = false;
 const MAX_STROKES = 3500;
 const MAX_POINTS = 1600;
 const COLORS = /^#[0-9a-f]{6}$/i;
 const normName = value => String(value || "Player").trim().replace(/\s+/g, " ").slice(0, 24) || "Player";
 const normWord = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"");
-const announce = () => hostCallbacks.onState?.(publicState("host"));
+const announce = () => hostCallbacks.onState?.(publicState("host", concealHostWord));
 const emit = e => hostCallbacks.onEvent?.(e);
 const report = msg => hostCallbacks.onError?.(msg);
 const sendSafe = (conn, message) => { if (conn?.open) { try { conn.send(message); } catch (e) { console.warn("Peer send:",e); } } };
 const allSend = message => { for (const c of peers.values()) sendSafe(c, message); };
 
-function publicState(forId) {
+function publicState(forId, forceConceal = false) {
   if (!state) return null;
   const guest = state.players.find(p => p.id === forId);
-  const seeWord = !state.round.active || state.round.drawerId === forId || guest?.spectator;
+  const seeWord = !forceConceal && !guest?.tvDisplay && (!state.round.active || state.round.drawerId === forId || guest?.spectator);
   return {
     room: state.room, players: state.players.map(p => ({...p})),
     round: { ...state.round, word: seeWord ? state.round.word : null,
@@ -96,7 +96,7 @@ function handleGuest(conn, message) {
   if (message.type==="join") {
     let p=state.players.find(p=>p.id===conn.peer);
     if (!p) {
-      p={id:conn.peer,name:normName(message.name),score:0,spectator:!!message.spectator};
+      p={id:conn.peer,name:normName(message.name),score:0,spectator:!!message.spectator,tvDisplay:!!message.tvDisplay};
       state.players.push(p);
     }
     conn.joined=true;
@@ -123,9 +123,9 @@ export async function loadWords() {
   wordBank=await response.json();
   return Object.fromEntries(Object.entries(wordBank).map(([k,v])=>[k,v.length]));
 }
-export function createHost({name="Host",playing=false,onReady,onState,onEvent,onError}={}) {
+export function createHost({name="Host",playing=false,hideHostWord=false,onReady,onState,onEvent,onError}={}) {
   disconnect();
-  hosting=true; localId="host";
+  hosting=true; localId="host"; concealHostWord=!!hideHostWord;
   hostCallbacks={onReady,onState,onEvent,onError};
   room=Array.from({length:6},()=> "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*32)]).join("");
   state={room,revision:0,history:[],players:[{id:"host",name:normName(name),score:0,spectator:!playing}],
@@ -143,7 +143,7 @@ export function createHost({name="Host",playing=false,onReady,onState,onEvent,on
   roundTimer=setInterval(()=>{if(state?.round.active && Date.now()>=state.round.endsAt)stopRound("time");},500);
   announce();
 }
-export function joinRoom({code,name="Player",spectator=false,onReady,onState,onEvent,onError}={}) {
+export function joinRoom({code,name="Player",spectator=false,tvDisplay=false,onReady,onState,onEvent,onError}={}) {
   disconnect();
   hosting=false; room=String(code||"").toUpperCase().trim();
   hostCallbacks={onReady,onState,onEvent,onError};
@@ -152,7 +152,7 @@ export function joinRoom({code,name="Player",spectator=false,onReady,onState,onE
   peer.on("open",id=>{
     localId=id;
     hostConnection=peer.connect(room,{reliable:true,serialization:"json"});
-    hostConnection.on("open",()=>sendSafe(hostConnection,{type:"join",name:normName(name),spectator}));
+    hostConnection.on("open",()=>sendSafe(hostConnection,{type:"join",name:normName(name),spectator,tvDisplay}));
     hostConnection.on("data",msg=>{
       if(msg.type==="sync"){state=msg.state; onEvent?.({type:"sync",history:msg.history||[]});onState?.(state);onReady?.(room);}
       else if(msg.type==="state"){state=msg.state;onState?.(state);}
@@ -171,7 +171,7 @@ export function disconnect() {
   if(hostConnection)hostConnection.close();
   hostConnection=null;
   if(peer)peer.destroy();
-  peer=null;state=null;room=null;localId="";hosting=false;
+  peer=null;state=null;room=null;localId="";hosting=false;concealHostWord=false;
 }
 export function sendStroke(input) {
   if(hosting){ if(state)recordStroke("host",input); }
