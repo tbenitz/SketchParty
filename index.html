@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>SketchParty — Draw</title>
+  <title>SketchParty</title>
   <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: system-ui, -apple-system, sans-serif;
-      background: #111;
+      background: #0a0a0a;
       color: #fff;
       height: 100dvh;
       display: flex;
@@ -19,7 +20,7 @@
     }
     header {
       padding: 8px 12px;
-      background: #1a1a1a;
+      background: #111;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -35,10 +36,11 @@
       padding: 6px 10px;
       border-radius: 6px;
       font-size: 0.85rem;
+      cursor: pointer;
     }
     button.active { background: #3b82f6; border-color: #3b82f6; }
-    canvas { flex: 1; background: #fff; touch-action: none; }
-    .join-screen {
+    canvas { flex: 1; background: #fff; touch-action: none; width: 100%; }
+    .screen {
       flex: 1;
       display: flex;
       flex-direction: column;
@@ -48,7 +50,15 @@
       gap: 12px;
       text-align: center;
     }
-    .join-screen input { width: 220px; font-size: 1.2rem; text-align: center; letter-spacing: 2px; }
+    .screen input { width: 220px; font-size: 1.2rem; text-align: center; letter-spacing: 2px; }
+    #qrcode { background: #fff; padding: 12px; border-radius: 12px; }
+    #players { opacity: 0.85; margin-top: 8px; }
+    .role-badge {
+      background: #1f2937;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+    }
   </style>
 </head>
 <body>
@@ -61,27 +71,45 @@
       <input type="color" id="color" value="#000000">
       <input type="range" id="size" min="2" max="20" value="6">
     </div>
+    <div id="status" class="role-badge">Ready</div>
   </header>
 
-  <div class="join-screen" id="joinScreen">
-    <h2>Join a game</h2>
-    <p style="opacity:.7;">Scan the QR on the TV or enter the code.</p>
+  <!-- Home: Host or Join -->
+  <div class="screen" id="homeScreen">
+    <h2>SketchParty</h2>
+    <p style="opacity:.7;">Host on the TV (or APK). Everyone else joins with their phone.</p>
+    <button id="hostBtn">Host a Room</button>
+    <hr style="width:60%;border:none;border-top:1px solid #333;margin:8px 0;">
     <input id="nameInput" placeholder="Your name" value="Player">
-    <input id="codeInput" placeholder="CODE" maxlength="6" style="text-transform:uppercase;">
-    <button id="joinBtn">Join</button>
+    <input id="codeInput" placeholder="ROOM CODE" maxlength="6" style="text-transform:uppercase;">
+    <button id="joinBtn">Join Room</button>
     <p id="joinError" style="color:#f87171;"></p>
   </div>
 
+  <!-- Host lobby with QR -->
+  <div class="screen" id="lobbyScreen" style="display:none;">
+    <h2>Scan to Join</h2>
+    <div id="qrcode"></div>
+    <p style="font-size:1.5rem;">Code: <strong id="codeDisplay"></strong></p>
+    <div id="players">Waiting for players…</div>
+    <button id="showBoardBtn">Show Drawing Board</button>
+  </div>
+
+  <!-- Shared live canvas (host always sees it; players see it when not drawing or always as view) -->
   <canvas id="canvas" style="display:none;"></canvas>
 
   <script type="module">
-    import { joinAsPlayer, sendStroke, sendClear } from "./js/game.js";
+    import { createHost, joinAsPlayer, sendStroke, sendClear } from "./js/game.js";
 
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
-    const joinScreen = document.getElementById("joinScreen");
+    const homeScreen = document.getElementById("homeScreen");
+    const lobbyScreen = document.getElementById("lobbyScreen");
     const tools = document.getElementById("tools");
+    const statusEl = document.getElementById("status");
 
+    let isHost = false;
+    let canDraw = false; // true when it's your turn (for now, host + joined players can draw)
     let drawing = false;
     let tool = "pen";
     let color = "#000000";
@@ -96,11 +124,50 @@
     window.addEventListener("resize", resize);
     resize();
 
-    // Auto-fill from QR (?room=CODE)
+    // Auto-join if QR brought us here with ?room=
     const params = new URLSearchParams(location.search);
     const urlCode = params.get("room");
-    if (urlCode) document.getElementById("codeInput").value = urlCode;
+    if (urlCode) {
+      document.getElementById("codeInput").value = urlCode;
+      // Optional: auto-focus name or auto-join later
+    }
 
+    // --- Host ---
+    document.getElementById("hostBtn").onclick = () => {
+      isHost = true;
+      canDraw = true; // host can draw too if desired
+      homeScreen.style.display = "none";
+      lobbyScreen.style.display = "flex";
+      statusEl.textContent = "Hosting";
+
+      createHost(
+        (code) => {
+          document.getElementById("codeDisplay").textContent = code;
+          const joinUrl = new URL(window.location.href);
+          joinUrl.searchParams.set("room", code);
+          new QRCode(document.getElementById("qrcode"), {
+            text: joinUrl.toString(),
+            width: 220,
+            height: 220
+          });
+        },
+        (names) => {
+          document.getElementById("players").textContent = names.length
+            ? "Joined: " + names.join(", ")
+            : "Waiting for players…";
+        },
+        handleIncomingStroke
+      );
+    };
+
+    document.getElementById("showBoardBtn").onclick = () => {
+      lobbyScreen.style.display = "none";
+      canvas.style.display = "block";
+      tools.style.display = canDraw ? "flex" : "none";
+      statusEl.textContent = canDraw ? "Drawing" : "Watching";
+    };
+
+    // --- Join ---
     document.getElementById("joinBtn").onclick = () => {
       const name = document.getElementById("nameInput").value || "Player";
       const code = document.getElementById("codeInput").value;
@@ -113,21 +180,26 @@
         code,
         name,
         () => {
-          joinScreen.style.display = "none";
+          homeScreen.style.display = "none";
           canvas.style.display = "block";
+          // For now everyone who joins can draw. Later restrict to current drawer.
+          canDraw = true;
           tools.style.display = "flex";
+          statusEl.textContent = "Drawing";
         },
-        (data) => {
-          if (data.type === "clear") {
-            ctx.fillStyle = "#fff";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            return;
-          }
-          drawRemoteStroke(data);
-        },
+        handleIncomingStroke,
         () => {}
       );
     };
+
+    function handleIncomingStroke(data) {
+      if (data.type === "clear") {
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        return;
+      }
+      drawRemoteStroke(data);
+    }
 
     function getNormPos(e) {
       const rect = canvas.getBoundingClientRect();
@@ -140,6 +212,7 @@
     }
 
     function start(e) {
+      if (!canDraw) return;
       e.preventDefault();
       drawing = true;
       currentPoints = [getNormPos(e)];
@@ -149,7 +222,7 @@
     }
 
     function draw(e) {
-      if (!drawing) return;
+      if (!drawing || !canDraw) return;
       e.preventDefault();
       const p = getNormPos(e);
       currentPoints.push(p);
@@ -164,12 +237,7 @@
     function end() {
       if (!drawing || currentPoints.length < 2) { drawing = false; return; }
       drawing = false;
-      sendStroke({
-        points: currentPoints,
-        color,
-        size,
-        tool
-      });
+      sendStroke({ points: currentPoints, color, size, tool });
       currentPoints = [];
     }
 
