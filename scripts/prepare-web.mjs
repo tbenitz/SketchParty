@@ -5,6 +5,7 @@ await Promise.all([
   copyFile("tv.html","www/index.html"),
   copyFile("tv.html","www/tv.html"),
   copyFile("style.css","www/style.css"),
+  copyFile("tv.css","www/tv.css"),
   copyFile("words.json","www/words.json"),
   cp("js","www/js",{recursive:true})
 ]);
