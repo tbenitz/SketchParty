@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SketchParty — TV Board</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0a0a0a;
+      color: #fff;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      padding: 12px 20px;
+      background: #111;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .hud {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      font-size: 1.1rem;
+    }
+    .timer { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.4rem; }
+    .status { opacity: 0.8; }
+    canvas {
+      flex: 1;
+      background: #fff;
+      width: 100%;
+    }
+    .lobby {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      text-align: center;
+    }
+    .qr-placeholder {
+      width: 200px;
+      height: 200px;
+      background: #222;
+      border: 2px dashed #444;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+    }
+    button {
+      background: #3b82f6;
+      border: none;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SketchParty</h1>
+    <div class="hud">
+      <span class="status" id="status">Waiting for players…</span>
+      <span class="timer" id="timer">--:--</span>
+      <span id="team">Team: —</span>
+      <span id="scores">Score: 0 – 0</span>
+    </div>
+  </header>
+
+  <div class="lobby" id="lobby">
+    <h2>Scan to Join</h2>
+    <div class="qr-placeholder">QR Code</div>
+    <p>Join code: <strong>ABC123</strong></p>
+    <button onclick="startGame()">Start Game</button>
+  </div>
+
+  <canvas id="canvas" style="display:none;"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const lobby = document.getElementById('lobby');
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight - document.querySelector('header').offsetHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function startGame() {
+      lobby.style.display = 'none';
+      canvas.style.display = 'block';
+      document.getElementById('status').textContent = 'Drawing…';
+      // TODO: connect to real-time room, receive strokes, show timer, etc.
+      console.log('TV board started — awaiting stroke stream');
+    }
+
+    // Placeholder: draw a welcome message on the canvas when shown
+    // Real implementation will receive live strokes via WebSocket/Firebase
+  </script>
+</body>
+</html>
