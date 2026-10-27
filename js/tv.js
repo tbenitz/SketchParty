@@ -121,6 +121,13 @@ function update(state){
   $("lobbyView").hidden=phase!=="lobby";
   $("intermissionView").hidden=phase!=="intermission";
   $("roomCode").textContent=state.room;
+  $("bigRoomCode").textContent=state.room;
+  $("lobbyTitle").textContent=hostMode?"Scan to play":"Watching room";
+  $("roomCaption").textContent=hostMode?"Or enter room code":"Connected as spectator";
+  $("qrcode").hidden=!hostMode;
+  $("lobbyHelp").textContent=hostMode
+    ?"Open SketchParty on a phone, choose Join room, and draw or guess there."
+    :"Waiting for the host to start. Players draw and guess on their phones.";
   $("roundDisplay").textContent=r.number?"ROUND "+r.number:"";
   $("artist").textContent=playing
     ?(state.players.find(p=>p.id===r.drawerId)?.name||"Someone")+" is drawing"
@@ -243,7 +250,11 @@ document.addEventListener("keydown",e=>{
     if(open){e.preventDefault();open.close();}
   }
 });
+let lastTick=Date.now();
 setInterval(()=>{
+  const now=Date.now(),elapsed=now-lastTick;lastTick=now;
+  // Keep the leaderboard visible while the TV host is adjusting scores.
+  if(hostMode && intermissionEndsAt && $("manageDialog").open)intermissionEndsAt+=elapsed;
   updateClock();
   if(notice && noticeUntil<=Date.now()&&current){
     notice="";noticeUntil=0;
@@ -251,7 +262,7 @@ setInterval(()=>{
     $("footMessage").textContent=active?"Only the artist's device displays the word. TV is spectator-only.":
       current.round.number>0?"Free drawing & scoreboard until the next round.":"Share the QR code so phones can join.";
   }
-  if(hostMode&&wordReady&&intermissionEndsAt&&Date.now()>=intermissionEndsAt){
+  if(hostMode&&wordReady&&intermissionEndsAt&&!$("manageDialog").open&&Date.now()>=intermissionEndsAt){
     if(current?.players.filter(p=>!p.spectator).length>=2)startIfReady();
     else intermissionEndsAt=Date.now()+10000; // do not hammer round start in an empty room
   }
