@@ -1,0 +1,8 @@
+{
+  "appId": "com.tbenitz.sketchparty",
+  "appName": "SketchParty",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
