@@ -1,0 +1,19 @@
+{
+  "easy": [
+    "apple", "dog", "house", "car", "tree", "sun", "cat", "ball", "fish", "book",
+    "phone", "pizza", "shoe", "hat", "star", "moon", "bird", "flower", "cake", "boat"
+  ],
+  "medium": [
+    "airplane", "guitar", "snowman", "rainbow", "dragon", "castle", "rocket", "bicycle",
+    "octopus", "kangaroo", "volcano", "telescope", "lighthouse", "skateboard", "dinosaur"
+  ],
+  "hard": [
+    "democracy", "photosynthesis", "quantum physics", "Renaissance", "algorithm",
+    "metamorphosis", "constellation", "architecture", "philosophy", "orchestra"
+  ],
+  "themed": {
+    "animals": ["elephant", "penguin", "giraffe", "dolphin", "panda", "tiger", "koala"],
+    "food": ["sushi", "hamburger", "ice cream", "taco", "spaghetti", "croissant"],
+    "movies": ["Star Wars", "Titanic", "Jurassic Park", "The Matrix", "Inception"]
+  }
+}
