@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SketchParty — TV Board</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -23,19 +26,9 @@
       align-items: center;
       flex-shrink: 0;
     }
-    .hud {
-      display: flex;
-      gap: 24px;
-      align-items: center;
-      font-size: 1.1rem;
-    }
+    .hud { display: flex; gap: 24px; align-items: center; font-size: 1.1rem; }
     .timer { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.4rem; }
-    .status { opacity: 0.8; }
-    canvas {
-      flex: 1;
-      background: #fff;
-      width: 100%;
-    }
+    canvas { flex: 1; background: #fff; width: 100%; }
     .lobby {
       flex: 1;
       display: flex;
@@ -44,17 +37,9 @@
       justify-content: center;
       gap: 16px;
       text-align: center;
+      padding: 20px;
     }
-    .qr-placeholder {
-      width: 200px;
-      height: 200px;
-      background: #222;
-      border: 2px dashed #444;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 12px;
-    }
+    #qrcode { background: #fff; padding: 12px; border-radius: 12px; }
     button {
       background: #3b82f6;
       border: none;
@@ -64,50 +49,122 @@
       font-size: 1rem;
       cursor: pointer;
     }
+    #players { margin-top: 8px; opacity: 0.85; }
+    .setup {
+      max-width: 420px;
+      width: 100%;
+      background: #161616;
+      padding: 20px;
+      border-radius: 12px;
+    }
+    input { width: 100%; padding: 10px; margin: 8px 0 12px; border-radius: 6px; border: 1px solid #333; background: #111; color: #fff; }
   </style>
 </head>
 <body>
   <header>
     <h1>SketchParty</h1>
     <div class="hud">
-      <span class="status" id="status">Waiting for players…</span>
+      <span id="status">Create a room</span>
       <span class="timer" id="timer">--:--</span>
-      <span id="team">Team: —</span>
-      <span id="scores">Score: 0 – 0</span>
+      <span id="scores">Players: 0</span>
     </div>
   </header>
 
   <div class="lobby" id="lobby">
-    <h2>Scan to Join</h2>
-    <div class="qr-placeholder">QR Code</div>
-    <p>Join code: <strong>ABC123</strong></p>
-    <button onclick="startGame()">Start Game</button>
+    <div class="setup" id="setup">
+      <h2>Start a game</h2>
+      <p style="opacity:.7;margin:8px 0 12px;">Open this page on your TV / laptop. Players scan the QR with their phones.</p>
+      <label>Your name<br><input id="hostName" value="Host"></label>
+      <button id="createBtn">Create Room</button>
+      <p id="configWarn" style="color:#f87171;margin-top:12px;display:none;">Firebase config missing. Copy firebase-config.example.js → firebase-config.js and add your project keys.</p>
+    </div>
+
+    <div id="roomInfo" style="display:none;">
+      <h2>Scan to Join</h2>
+      <div id="qrcode"></div>
+      <p style="font-size:1.4rem;margin-top:8px;">Code: <strong id="codeDisplay"></strong></p>
+      <div id="players"></div>
+      <button id="startBtn" style="margin-top:12px;">Start Drawing</button>
+    </div>
   </div>
 
   <canvas id="canvas" style="display:none;"></canvas>
 
-  <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const lobby = document.getElementById('lobby');
+  <script type="module">
+    import { firebaseConfig } from "./firebase-config.js";
+    import { initFirebase, createRoom, listenPlayers, listenStrokes, getRoomCode } from "./js/game.js";
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const lobby = document.getElementById("lobby");
+    const setup = document.getElementById("setup");
+    const roomInfo = document.getElementById("roomInfo");
+    const configWarn = document.getElementById("configWarn");
 
     function resize() {
       canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight - document.querySelector('header').offsetHeight;
+      canvas.height = window.innerHeight - document.querySelector("header").offsetHeight;
     }
-    window.addEventListener('resize', resize);
+    window.addEventListener("resize", resize);
     resize();
 
-    function startGame() {
-      lobby.style.display = 'none';
-      canvas.style.display = 'block';
-      document.getElementById('status').textContent = 'Drawing…';
-      // TODO: connect to real-time room, receive strokes, show timer, etc.
-      console.log('TV board started — awaiting stroke stream');
-    }
+    const hasConfig = initFirebase(firebaseConfig);
+    if (!hasConfig) configWarn.style.display = "block";
 
-    // Placeholder: draw a welcome message on the canvas when shown
-    // Real implementation will receive live strokes via WebSocket/Firebase
+    document.getElementById("createBtn").onclick = async () => {
+      if (!hasConfig) return;
+      const name = document.getElementById("hostName").value || "Host";
+      const code = await createRoom(name);
+      if (!code) return;
+
+      setup.style.display = "none";
+      roomInfo.style.display = "block";
+      document.getElementById("codeDisplay").textContent = code;
+      document.getElementById("status").textContent = "Waiting for players…";
+
+      const joinUrl = new URL("index.html", window.location.href);
+      joinUrl.searchParams.set("room", code);
+      new QRCode(document.getElementById("qrcode"), {
+        text: joinUrl.toString(),
+        width: 220,
+        height: 220
+      });
+
+      listenPlayers((players) => {
+        const list = Object.values(players).map(p => p.name).join(", ") || "none yet";
+        document.getElementById("players").textContent = "Joined: " + list;
+        document.getElementById("scores").textContent = "Players: " + Object.keys(players).length;
+      });
+
+      listenStrokes((id, stroke) => {
+        if (!stroke) {
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          return;
+        }
+        drawStroke(stroke);
+      });
+    };
+
+    document.getElementById("startBtn").onclick = () => {
+      lobby.style.display = "none";
+      canvas.style.display = "block";
+      document.getElementById("status").textContent = "Drawing…";
+    };
+
+    function drawStroke(stroke) {
+      if (!stroke.points || stroke.points.length < 2) return;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = stroke.tool === "eraser" ? (stroke.size || 6) * 3 : (stroke.size || 6);
+      ctx.strokeStyle = stroke.tool === "eraser" ? "#ffffff" : (stroke.color || "#000");
+      ctx.beginPath();
+      ctx.moveTo(stroke.points[0].x * canvas.width, stroke.points[0].y * canvas.height);
+      for (let i = 1; i < stroke.points.length; i++) {
+        ctx.lineTo(stroke.points[i].x * canvas.width, stroke.points[i].y * canvas.height);
+      }
+      ctx.stroke();
+    }
   </script>
 </body>
 </html>
