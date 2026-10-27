@@ -4,8 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>SketchParty — Draw</title>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -50,7 +49,6 @@
       text-align: center;
     }
     .join-screen input { width: 220px; font-size: 1.2rem; text-align: center; letter-spacing: 2px; }
-    #word { font-size: 1.1rem; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -63,7 +61,6 @@
       <input type="color" id="color" value="#000000">
       <input type="range" id="size" min="2" max="20" value="6">
     </div>
-    <div id="word"></div>
   </header>
 
   <div class="join-screen" id="joinScreen">
@@ -78,8 +75,7 @@
   <canvas id="canvas" style="display:none;"></canvas>
 
   <script type="module">
-    import { firebaseConfig } from "./firebase-config.js";
-    import { initFirebase, joinRoom, listenStrokes, pushStroke, clearStrokes, getRoomCode } from "./js/game.js";
+    import { joinAsPlayer, sendStroke, sendClear } from "./js/game.js";
 
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
@@ -100,39 +96,37 @@
     window.addEventListener("resize", resize);
     resize();
 
-    const hasConfig = initFirebase(firebaseConfig);
-
-    // Auto-join if ?room=CODE in URL (from QR)
+    // Auto-fill from QR (?room=CODE)
     const params = new URLSearchParams(location.search);
     const urlCode = params.get("room");
     if (urlCode) document.getElementById("codeInput").value = urlCode;
 
-    document.getElementById("joinBtn").onclick = async () => {
-      if (!hasConfig) {
-        document.getElementById("joinError").textContent = "Firebase not configured. See README.";
-        return;
-      }
+    document.getElementById("joinBtn").onclick = () => {
       const name = document.getElementById("nameInput").value || "Player";
       const code = document.getElementById("codeInput").value;
-      const ok = await joinRoom(code, name);
-      if (!ok) {
-        document.getElementById("joinError").textContent = "Room not found.";
+      if (!code) {
+        document.getElementById("joinError").textContent = "Enter a room code.";
         return;
       }
-      joinScreen.style.display = "none";
-      canvas.style.display = "block";
-      tools.style.display = "flex";
-      document.getElementById("word").textContent = "Draw on the TV!";
 
-      listenStrokes((id, stroke) => {
-        if (!stroke) {
-          ctx.fillStyle = "#fff";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          return;
-        }
-        // Only draw strokes that aren't ours (simple check via last local)
-        drawRemoteStroke(stroke);
-      });
+      joinAsPlayer(
+        code,
+        name,
+        () => {
+          joinScreen.style.display = "none";
+          canvas.style.display = "block";
+          tools.style.display = "flex";
+        },
+        (data) => {
+          if (data.type === "clear") {
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            return;
+          }
+          drawRemoteStroke(data);
+        },
+        () => {}
+      );
     };
 
     function getNormPos(e) {
@@ -170,12 +164,11 @@
     function end() {
       if (!drawing || currentPoints.length < 2) { drawing = false; return; }
       drawing = false;
-      pushStroke({
+      sendStroke({
         points: currentPoints,
         color,
         size,
-        tool,
-        ts: Date.now()
+        tool
       });
       currentPoints = [];
     }
@@ -200,7 +193,7 @@
       document.getElementById("pen").classList.remove("active");
     };
     document.getElementById("clear").onclick = () => {
-      clearStrokes();
+      sendClear();
       ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     };
