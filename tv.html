@@ -1,12 +1,90 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=index.html">
-  <script>location.replace("index.html" + location.search);</script>
-  <title>SketchParty</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0e1525">
+  <meta name="description" content="SketchParty big-screen spectator display">
+  <title>SketchParty · TV Display</title>
+  <link rel="stylesheet" href="./tv.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
 <body>
-  <p>Redirecting to SketchParty…</p>
+  <header class="tv-header">
+    <div class="brand"><span class="brandmark" aria-hidden="true">✎</span><span>Sketch<b>Party</b></span></div>
+    <div class="header-center">
+      <span id="phaseBadge" class="phase">Starting room…</span>
+      <span id="artist" class="artist"></span>
+    </div>
+    <div class="header-right">
+      <span class="room-label">ROOM <strong id="roomCode">······</strong></span>
+      <span id="roundDisplay" class="round-number"></span>
+      <span id="clock" class="clock" aria-live="off">--:--</span>
+    </div>
+  </header>
+  <main id="stage" class="stage lobby">
+    <section class="board-zone">
+      <div id="boardCaption" class="board-caption">Draw together while everyone joins</div>
+      <div id="boardFit" class="board-fit">
+        <div id="boardFrame" class="board-frame">
+          <canvas id="canvas" width="1200" height="675" aria-label="SketchParty live spectator whiteboard"></canvas>
+        </div>
+      </div>
+    </section>
+    <aside id="side" class="side">
+      <div id="lobbyView" class="panel lobby-panel">
+        <div class="eyebrow">JOIN THE PARTY</div>
+        <h1>Scan to play</h1>
+        <div id="qrcode" class="qr"><span>Connecting…</span></div>
+        <div class="code-caption">Or enter room code</div>
+        <div id="bigRoomCode" class="big-code">······</div>
+        <div id="lobbyCount" class="joined">Waiting for players</div>
+        <p class="help">Open SketchParty on a phone, choose <b>Join room</b>, and draw or guess there.</p>
+        <button id="watchRoom" class="secondary small-button">Watch another room</button>
+      </div>
+      <div id="intermissionView" class="panel leaderboard-panel" hidden>
+        <div class="eyebrow">SCOREBOARD</div>
+        <h2>Leaderboard</h2>
+        <div id="leaders" class="leaders"></div>
+        <div class="intermission-note">Free draw is open to everyone</div>
+        <div id="nextHint" class="next-hint"></div>
+      </div>
+    </aside>
+  </main>
+  <footer class="tv-footer">
+    <div id="footMessage" class="foot-message">Opening spectator room…</div>
+    <div class="footer-buttons">
+      <button id="showInvite" class="secondary" hidden>Join QR</button>
+      <button id="manage" class="secondary" hidden>Manage scores</button>
+      <button id="skip" class="secondary" hidden>Skip round</button>
+      <button id="next" class="primary" hidden>Start game</button>
+    </div>
+  </footer>
+
+  <dialog id="manageDialog" class="dialog">
+    <form method="dialog"><button class="dialog-close" aria-label="Close management">×</button></form>
+    <h2>Host score controls</h2>
+    <p class="dialog-description">These are optional controls. The TV remains spectator-only.</p>
+    <div id="scoreEditor" class="score-editor"></div>
+    <div class="dialog-actions">
+      <button id="resetScores" type="button">Reset scores</button>
+      <button id="restartGame" type="button" class="danger">New game</button>
+    </div>
+    <button id="exitManage" type="button" class="primary dialog-done">Done</button>
+  </dialog>
+  <dialog id="joinDialog" class="dialog join-dialog">
+    <form method="dialog"><button class="dialog-close" aria-label="Close">×</button></form>
+    <h2>Watch an existing room</h2>
+    <p class="dialog-description">Enter the six-character room code from a host's phone. This TV will join as a read-only spectator.</p>
+    <label for="joinCode">Room code</label>
+    <input id="joinCode" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="ABC123">
+    <div class="dialog-actions">
+      <button id="doWatch" type="button" class="primary">Watch room</button>
+      <button id="cancelWatch" type="button">Cancel</button>
+    </div>
+    <div id="joinError" class="error" role="status"></div>
+  </dialog>
+  <script type="module" src="./js/tv.js"></script>
 </body>
 </html>
