@@ -18,6 +18,25 @@
       touch-action: none;
       overflow: hidden;
     }
+    /* Kitchen splash while loading */
+    #splash {
+      position: fixed;
+      inset: 0;
+      background: #1a120b url('https://images.unsplash.com/photo-1556912173-3bb406ef7e77?auto=format&fit=crop&w=1200&q=80') center/cover no-repeat;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      transition: opacity 0.4s;
+    }
+    #splash.hidden { opacity: 0; pointer-events: none; }
+    #splash .overlay {
+      background: rgba(0,0,0,0.45);
+      padding: 24px 32px;
+      border-radius: 16px;
+      text-align: center;
+    }
+    #splash h1 { font-size: 2rem; margin-bottom: 8px; }
     header {
       padding: 8px 12px;
       background: #111;
@@ -26,6 +45,7 @@
       justify-content: space-between;
       gap: 8px;
       flex-shrink: 0;
+      z-index: 10;
     }
     h1 { font-size: 1rem; font-weight: 600; }
     .tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
@@ -40,76 +60,109 @@
     }
     button.active { background: #3b82f6; border-color: #3b82f6; }
     canvas { flex: 1; background: #fff; touch-action: none; width: 100%; }
-    .screen {
-      flex: 1;
+    .fab {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
       display: flex;
       flex-direction: column;
+      gap: 8px;
+      z-index: 20;
+    }
+    .fab button {
+      background: #3b82f6;
+      border: none;
+      padding: 12px 16px;
+      border-radius: 999px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
       align-items: center;
       justify-content: center;
+      z-index: 50;
+    }
+    .modal.open { display: flex; }
+    .modal-card {
+      background: #161616;
       padding: 20px;
-      gap: 12px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 360px;
       text-align: center;
     }
-    .screen input { width: 220px; font-size: 1.2rem; text-align: center; letter-spacing: 2px; }
-    #qrcode { background: #fff; padding: 12px; border-radius: 12px; }
-    #players { opacity: 0.85; margin-top: 8px; }
-    .role-badge {
-      background: #1f2937;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 0.8rem;
-    }
+    .modal-card input { width: 100%; margin: 8px 0; font-size: 1.1rem; text-align: center; }
+    #qrcode { background: #fff; padding: 12px; border-radius: 12px; margin: 12px auto; display: inline-block; }
   </style>
 </head>
 <body>
+  <!-- Kitchen splash -->
+  <div id="splash">
+    <div class="overlay">
+      <h1>SketchParty</h1>
+      <p>Draw on your phone. Guess on the TV.</p>
+    </div>
+  </div>
+
   <header>
     <h1>SketchParty</h1>
-    <div class="tools" id="tools" style="display:none;">
+    <div class="tools" id="tools">
       <button id="pen" class="active">Pen</button>
       <button id="eraser">Eraser</button>
       <button id="clear">Clear</button>
       <input type="color" id="color" value="#000000">
       <input type="range" id="size" min="2" max="20" value="6">
     </div>
-    <div id="status" class="role-badge">Ready</div>
+    <div id="status">Doodling</div>
   </header>
 
-  <!-- Home: Host or Join -->
-  <div class="screen" id="homeScreen">
-    <h2>SketchParty</h2>
-    <p style="opacity:.7;">Host on the TV (or APK). Everyone else joins with their phone.</p>
-    <button id="hostBtn">Host a Room</button>
-    <hr style="width:60%;border:none;border-top:1px solid #333;margin:8px 0;">
-    <input id="nameInput" placeholder="Your name" value="Player">
-    <input id="codeInput" placeholder="ROOM CODE" maxlength="6" style="text-transform:uppercase;">
-    <button id="joinBtn">Join Room</button>
-    <p id="joinError" style="color:#f87171;"></p>
+  <!-- Always-on doodle canvas -->
+  <canvas id="canvas"></canvas>
+
+  <!-- Floating actions -->
+  <div class="fab">
+    <button id="hostBtn">Host Room</button>
+    <button id="joinBtn">Join / Scan</button>
   </div>
 
-  <!-- Host lobby with QR -->
-  <div class="screen" id="lobbyScreen" style="display:none;">
-    <h2>Scan to Join</h2>
-    <div id="qrcode"></div>
-    <p style="font-size:1.5rem;">Code: <strong id="codeDisplay"></strong></p>
-    <div id="players">Waiting for players…</div>
-    <button id="showBoardBtn">Show Drawing Board</button>
+  <!-- Join modal -->
+  <div class="modal" id="joinModal">
+    <div class="modal-card">
+      <h3>Join a Room</h3>
+      <input id="nameInput" placeholder="Your name" value="Player">
+      <input id="codeInput" placeholder="ROOM CODE" maxlength="6" style="text-transform:uppercase;">
+      <button id="doJoin">Join</button>
+      <button id="closeJoin" style="margin-top:8px;background:#333;">Cancel</button>
+      <p id="joinError" style="color:#f87171;margin-top:8px;"></p>
+    </div>
   </div>
 
-  <!-- Shared live canvas (host always sees it; players see it when not drawing or always as view) -->
-  <canvas id="canvas" style="display:none;"></canvas>
+  <!-- Host lobby modal -->
+  <div class="modal" id="lobbyModal">
+    <div class="modal-card">
+      <h3>Scan to Join</h3>
+      <div id="qrcode"></div>
+      <p style="font-size:1.4rem;">Code: <strong id="codeDisplay"></strong></p>
+      <div id="players">Waiting for players…</div>
+      <button id="closeLobby" style="margin-top:12px;">Close</button>
+    </div>
+  </div>
 
   <script type="module">
     import { createHost, joinAsPlayer, sendStroke, sendClear } from "./js/game.js";
 
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
-    const homeScreen = document.getElementById("homeScreen");
-    const lobbyScreen = document.getElementById("lobbyScreen");
     const tools = document.getElementById("tools");
     const statusEl = document.getElementById("status");
+    const splash = document.getElementById("splash");
 
     let isHost = false;
-    let canDraw = false; // true when it's your turn (for now, host + joined players can draw)
+    let canDraw = true; // local doodle always allowed; restricted when in a game turn later
     let drawing = false;
     let tool = "pen";
     let color = "#000000";
@@ -120,24 +173,28 @@
       const header = document.querySelector("header");
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight - header.offsetHeight;
+      // restore white bg
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
     window.addEventListener("resize", resize);
     resize();
 
-    // Auto-join if QR brought us here with ?room=
+    // Hide splash after a short moment
+    setTimeout(() => splash.classList.add("hidden"), 1200);
+
+    // Auto-fill room from QR
     const params = new URLSearchParams(location.search);
     const urlCode = params.get("room");
     if (urlCode) {
       document.getElementById("codeInput").value = urlCode;
-      // Optional: auto-focus name or auto-join later
+      document.getElementById("joinModal").classList.add("open");
     }
 
     // --- Host ---
     document.getElementById("hostBtn").onclick = () => {
       isHost = true;
-      canDraw = true; // host can draw too if desired
-      homeScreen.style.display = "none";
-      lobbyScreen.style.display = "flex";
+      document.getElementById("lobbyModal").classList.add("open");
       statusEl.textContent = "Hosting";
 
       createHost(
@@ -145,10 +202,11 @@
           document.getElementById("codeDisplay").textContent = code;
           const joinUrl = new URL(window.location.href);
           joinUrl.searchParams.set("room", code);
+          document.getElementById("qrcode").innerHTML = "";
           new QRCode(document.getElementById("qrcode"), {
             text: joinUrl.toString(),
-            width: 220,
-            height: 220
+            width: 200,
+            height: 200
           });
         },
         (names) => {
@@ -160,15 +218,19 @@
       );
     };
 
-    document.getElementById("showBoardBtn").onclick = () => {
-      lobbyScreen.style.display = "none";
-      canvas.style.display = "block";
-      tools.style.display = canDraw ? "flex" : "none";
-      statusEl.textContent = canDraw ? "Drawing" : "Watching";
+    document.getElementById("closeLobby").onclick = () => {
+      document.getElementById("lobbyModal").classList.remove("open");
     };
 
     // --- Join ---
     document.getElementById("joinBtn").onclick = () => {
+      document.getElementById("joinModal").classList.add("open");
+    };
+    document.getElementById("closeJoin").onclick = () => {
+      document.getElementById("joinModal").classList.remove("open");
+    };
+
+    document.getElementById("doJoin").onclick = () => {
       const name = document.getElementById("nameInput").value || "Player";
       const code = document.getElementById("codeInput").value;
       if (!code) {
@@ -180,12 +242,9 @@
         code,
         name,
         () => {
-          homeScreen.style.display = "none";
-          canvas.style.display = "block";
-          // For now everyone who joins can draw. Later restrict to current drawer.
-          canDraw = true;
-          tools.style.display = "flex";
-          statusEl.textContent = "Drawing";
+          document.getElementById("joinModal").classList.remove("open");
+          statusEl.textContent = "In room";
+          canDraw = true; // still allow doodle; later restrict by turn
         },
         handleIncomingStroke,
         () => {}
@@ -237,7 +296,10 @@
     function end() {
       if (!drawing || currentPoints.length < 2) { drawing = false; return; }
       drawing = false;
-      sendStroke({ points: currentPoints, color, size, tool });
+      // Only send if we're in a room
+      if (isHost || document.getElementById("status").textContent === "In room") {
+        sendStroke({ points: currentPoints, color, size, tool });
+      }
       currentPoints = [];
     }
 
@@ -261,7 +323,7 @@
       document.getElementById("pen").classList.remove("active");
     };
     document.getElementById("clear").onclick = () => {
-      sendClear();
+      if (isHost || document.getElementById("status").textContent === "In room") sendClear();
       ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     };
