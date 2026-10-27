@@ -99,7 +99,7 @@
       <button class="close-modal" data-close="hostModal" aria-label="Close">×</button>
       <h2 id="hostTitle">Host a game</h2>
       <p>Choose a name. Host as referee on your TV, or participate in drawing and guessing.</p>
-      <label>Your nickname <input id="hostName" maxlength="24" autocomplete="nickname" placeholder="Game host"></label>
+      <label>Your nickname <input type="text" id="hostName" maxlength="24" autocomplete="nickname" placeholder="Game host"></label>
       <label class="check-label"><input id="hostPlaying" type="checkbox"> I'm playing too (otherwise spectator / referee)</label>
       <button id="doHost" class="primary wide">Create room</button>
     </div>
@@ -109,8 +109,8 @@
       <button class="close-modal" data-close="joinModal" aria-label="Close">×</button>
       <h2 id="joinTitle">Join SketchParty</h2>
       <p>Use the room code shown on the host's screen.</p>
-      <label>Your nickname <input id="joinName" maxlength="24" autocomplete="nickname" placeholder="Your nickname"></label>
-      <label>Room code <input id="joinCode" maxlength="6" autocapitalize="characters" autocomplete="off" placeholder="ABC123"></label>
+      <label>Your nickname <input type="text" id="joinName" maxlength="24" autocomplete="nickname" placeholder="Your nickname"></label>
+      <label>Room code <input type="text" id="joinCode" maxlength="6" autocapitalize="characters" autocomplete="off" placeholder="ABC123"></label>
       <label class="check-label"><input id="joinSpectator" type="checkbox"> Watch as spectator (see secret word, no guessing)</label>
       <button id="doJoin" class="primary wide">Join room</button>
       <div id="joinError" class="error-text" role="alert"></div>
