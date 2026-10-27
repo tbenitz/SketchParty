@@ -21,3 +21,6 @@ android/
 .env
 .env.local
 firebase-config.js
+
+# Generated Capacitor web bundle
+/www/
