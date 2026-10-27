@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>SketchParty — Drawing Suite</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #111;
+      color: #fff;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      touch-action: none;
+      overflow: hidden;
+    }
+    header {
+      padding: 8px 12px;
+      background: #1a1a1a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    h1 { font-size: 1rem; font-weight: 600; }
+    .tools {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    button, input[type="color"] {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    button.active { background: #3b82f6; border-color: #3b82f6; }
+    canvas {
+      flex: 1;
+      background: #fff;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    .color-swatch { width: 28px; height: 28px; padding: 0; border-radius: 50%; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SketchParty</h1>
+    <div class="tools">
+      <button id="pen" class="active">Pen</button>
+      <button id="eraser">Eraser</button>
+      <button id="undo">Undo</button>
+      <button id="clear">Clear</button>
+      <input type="color" id="color" value="#000000" class="color-swatch" title="Color">
+      <label>Size: <input type="range" id="size" min="2" max="24" value="6"></label>
+    </div>
+  </header>
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let drawing = false;
+    let tool = 'pen';
+    let color = '#000000';
+    let size = 6;
+    const history = [];
+    let lastPoint = null;
+
+    function resize() {
+      const header = document.querySelector('header');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight - header.offsetHeight;
+      redraw();
+    }
+
+    function saveState() {
+      history.push(canvas.toDataURL());
+      if (history.length > 50) history.shift();
+    }
+
+    function redraw() {
+      if (history.length === 0) {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+      };
+      img.src = history[history.length - 1];
+    }
+
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
+    }
+
+    function start(e) {
+      e.preventDefault();
+      drawing = true;
+      saveState();
+      lastPoint = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(lastPoint.x, lastPoint.y);
+    }
+
+    function draw(e) {
+      if (!drawing) return;
+      e.preventDefault();
+      const pos = getPos(e);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = tool === 'eraser' ? size * 3 : size;
+      ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : color;
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      lastPoint = pos;
+    }
+
+    function end(e) {
+      if (!drawing) return;
+      drawing = false;
+      lastPoint = null;
+    }
+
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', end);
+    canvas.addEventListener('mouseleave', end);
+
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', end);
+    canvas.addEventListener('touchcancel', end);
+
+    document.getElementById('pen').onclick = () => {
+      tool = 'pen';
+      document.getElementById('pen').classList.add('active');
+      document.getElementById('eraser').classList.remove('active');
+    };
+    document.getElementById('eraser').onclick = () => {
+      tool = 'eraser';
+      document.getElementById('eraser').classList.add('active');
+      document.getElementById('pen').classList.remove('active');
+    };
+    document.getElementById('undo').onclick = () => {
+      if (history.length > 1) {
+        history.pop();
+        redraw();
+      } else if (history.length === 1) {
+        history.pop();
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+    };
+    document.getElementById('clear').onclick = () => {
+      saveState();
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    };
+    document.getElementById('color').oninput = (e) => { color = e.target.value; };
+    document.getElementById('size').oninput = (e) => { size = +e.target.value; };
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    // TODO: WebSocket / Firebase stroke streaming for real-time TV sync
+    console.log('SketchParty drawing suite ready. Stroke streaming TBD.');
+  </script>
+</body>
+</html>
